@@ -1,0 +1,39 @@
+<h2>核心设计决策：Tab 如何感知当前模式？</h2>
+<p class="subtitle">采集页和预测页在康复模式下需要不同的显示行为</p>
+
+<div class="section">
+  <h3>问题</h3>
+  <p>在康复评估系统中，<strong>数据采集页</strong>需要隐藏角度/力加载区，<strong>双输出预测页</strong>需要简化显示（去真实值、误差、指标）。Tab 需要知道自己处于哪种模式。</p>
+</div>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Tab 通过 MainApp.Mode 自行判断 ✅ 推荐</h3>
+      <p>Tab 已有 MainApp 引用，直接读取 <code>obj.MainApp.Mode</code>。在 buildUI 中根据模式决定显示哪些组件。</p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>零构造函数改动</li><li>遵循现有模式（Tab 已在读 MainApp 属性）</li><li>改动量最小</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>Tab 内部多一个条件判断</li></ul></div>
+      </div>
+    </div>
+  </div>
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>修改 Tab 构造函数传入 mode</h3>
+      <p>将 mode 作为第三个参数传入构造函数 <code>AcquisitionTab(parent, mainApp, mode)</code></p>
+      <div class="pros-cons">
+        <div class="pros"><h4>Pros</h4><ul><li>显式参数传递</li></ul></div>
+        <div class="cons"><h4>Cons</h4><ul><li>破坏现有构造函数签名</li><li>MainApp 所有Tab创建处都要改</li><li>两个系统的Tab实例不同但签名相同</li></ul></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="background: #f0f5fa; padding: 15px; border-radius: 8px; margin-top: 20px; border-left: 4px solid #264b75;">
+  <strong>推荐方案 A</strong>：在 AcquisitionTab 和 PredictionTab 的 <code>buildUI()</code> 中增加一行判断：
+  <pre style="background: #1e1e1e; color: #d4d4d4; padding: 10px; font-size: 12px;">isRehab = obj.MainApp.Mode == "rehab_assessment";</pre>
+  然后据此跳过或简化特定 UI 组件的创建。
+</div>
+

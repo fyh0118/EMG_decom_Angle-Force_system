@@ -52,6 +52,10 @@ classdef MainApp < handle
         CurrentAction   string = "G01"   % 当前动作（G01~G04）
     end
 
+    properties (SetAccess = private, GetAccess = public)
+        ReturnToLogin   logical = false
+    end
+
     %% ---- UI组件属性 ----
     properties (Access = private)
         UIFigure            matlab.ui.Figure
@@ -69,11 +73,16 @@ classdef MainApp < handle
         PredictionTabObj
         AssessmentTabObj
         DataManagementTabObj
+        Mode                string = "model_validation"
     end
 
     %% ---- 生命周期 ----
     methods
-        function obj = MainApp()
+        function obj = MainApp(mode)
+            if nargin < 1
+                mode = "model_validation";
+            end
+            obj.Mode = mode;
             obj.CurrentPatient = models.PatientInfo();
             obj.CurrentSession = models.SessionData();
         end
@@ -82,6 +91,10 @@ classdef MainApp < handle
             obj.buildUI();
             obj.updateStatusBar();
             obj.updateClock();
+        end
+
+        function fig = getFigure(obj)
+            fig = obj.UIFigure;
         end
     end
 
@@ -94,8 +107,14 @@ classdef MainApp < handle
             x = max(1, (screenSize(3) - AppConstants.WINDOW_WIDTH) / 2);
             y = max(1, (screenSize(4) - AppConstants.WINDOW_HEIGHT) / 2);
 
+            if obj.Mode == "rehab_assessment"
+                windowTitle = '肌电慧控 - 康复评估系统';
+            else
+                windowTitle = '肌电慧控 - 模型验证系统';
+            end
+
             obj.UIFigure = uifigure(...
-                'Name', '肌电慧控——基于高密度肌电分解的腕关节运动解码与康复评估系统', ...
+                'Name', windowTitle, ...
                 'Position', [x, y, AppConstants.WINDOW_WIDTH, AppConstants.WINDOW_HEIGHT], ...
                 'Color', AppConstants.COLOR_BG, ...
                 'Resize', 'on', ...
@@ -113,10 +132,18 @@ classdef MainApp < handle
         function buildStatusBar(obj, parentGrid)
             import config.AppConstants
 
-            statusGrid = uigridlayout(parentGrid, [1, 5], ...
+            statusGrid = uigridlayout(parentGrid, [1, 6], ...
                 'BackgroundColor', [0.15 0.15 0.15], ...
                 'Padding', [10, 2, 10, 2], ...
-                'ColumnWidth', {'fit', 'fit', 'fit', '1x', 'fit'});
+                'ColumnWidth', {'fit', 'fit', 'fit', 'fit', '1x', 'fit'});
+
+            uibutton(statusGrid, ...
+                'Text', '← 返回登录', ...
+                'FontSize', AppConstants.FONT_SIZE_SMALL, ...
+                'FontName', AppConstants.FONT_NAME, ...
+                'FontColor', [0.8 0.8 0.8], ...
+                'BackgroundColor', [0.25 0.25 0.25], ...
+                'ButtonPushedFcn', @(~,~) obj.onReturnToLogin());
 
             obj.StatusLabel_Mode = uilabel(statusGrid, ...
                 'Text', '肌电慧控 v1.0', ...
@@ -149,19 +176,23 @@ classdef MainApp < handle
             obj.TabGroup = uitabgroup(parentGrid, ...
                 'SelectionChangedFcn', @(~, evt) obj.onTabChanged(evt));
 
-            % 创建五个Tab
+            % 核心三Tab（两个系统都包含）
             tab1 = uitab(obj.TabGroup, 'Title', '数据采集');
             tab2 = uitab(obj.TabGroup, 'Title', '肌电分解');
             tab3 = uitab(obj.TabGroup, 'Title', '双输出预测');
-            tab4 = uitab(obj.TabGroup, 'Title', '康复评估');
-            tab5 = uitab(obj.TabGroup, 'Title', '数据管理');
 
-            % 构建各Tab内容
             obj.AcquisitionTabObj = ui.tabs.AcquisitionTab(tab1, obj);
             obj.DecompositionTabObj = ui.tabs.DecompositionTab(tab2, obj);
             obj.PredictionTabObj = ui.tabs.PredictionTab(tab3, obj);
-            obj.AssessmentTabObj = ui.tabs.AssessmentTab(tab4, obj);
-            obj.DataManagementTabObj = ui.tabs.DataManagementTab(tab5, obj);
+
+            % 康复评估系统额外包含评估和管理两个Tab
+            if obj.Mode == "rehab_assessment"
+                tab4 = uitab(obj.TabGroup, 'Title', '康复评估');
+                tab5 = uitab(obj.TabGroup, 'Title', '数据管理');
+
+                obj.AssessmentTabObj = ui.tabs.AssessmentTab(tab4, obj);
+                obj.DataManagementTabObj = ui.tabs.DataManagementTab(tab5, obj);
+            end
         end
     end
 
@@ -241,7 +272,19 @@ classdef MainApp < handle
 
     %% ---- 关闭处理 ----
     methods (Access = private)
+        function onReturnToLogin(obj)
+            obj.ReturnToLogin = true;
+            if ~isempty(obj.ClockTimer) && isvalid(obj.ClockTimer)
+                stop(obj.ClockTimer);
+                delete(obj.ClockTimer);
+            end
+            if isvalid(obj.UIFigure)
+                delete(obj.UIFigure);
+            end
+        end
+
         function onClose(obj)
+            obj.ReturnToLogin = false;
             if ~isempty(obj.ClockTimer) && isvalid(obj.ClockTimer)
                 stop(obj.ClockTimer);
                 delete(obj.ClockTimer);

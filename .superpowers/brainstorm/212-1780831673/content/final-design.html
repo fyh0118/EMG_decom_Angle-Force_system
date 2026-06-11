@@ -1,0 +1,94 @@
+<h2>第二阶段完整设计 — 提交审批</h2>
+<p class="subtitle">康复评估系统：采集页+预测页适配 + 评估页重写 + 指标计算 + 报告导出</p>
+
+<div class="section">
+  <h3>一、文件改动清单</h3>
+  <table style="font-size: 13px; width: 100%; border-collapse: collapse;">
+    <tr style="background:#264b75; color:white;">
+      <th style="padding:6px 10px;">文件</th><th style="padding:6px 10px;">操作</th><th style="padding:6px 10px;">说明</th></tr>
+    <tr style="background:#f0f5fa;"><td><code>+ui/+tabs/AssessmentTab.m</code></td><td><span style="color:#e67e22;">重写</span></td><td>全新五区域康复评估页面</td></tr>
+    <tr><td><code>+ui/+tabs/AcquisitionTab.m</code></td><td><span style="color:#e67e22;">修改</span></td><td>rehab模式下隐藏角度/力加载区域</td></tr>
+    <tr style="background:#f0f5fa;"><td><code>+ui/+tabs/PredictionTab.m</code></td><td><span style="color:#e67e22;">修改</span></td><td>rehab模式简化显示、跳过标签、写MainApp总线</td></tr>
+    <tr><td><code>+utils/RehabMetrics.m</code></td><td><span style="color:#33a673;">新建</span></td><td>ROM/力量/稳定性指标计算函数</td></tr>
+    <tr style="background:#f0f5fa;"><td><code>+services/AssessmentService.m</code></td><td><span style="color:#e67e22;">扩展</span></td><td>新增runRehabAssessment()静态方法</td></tr>
+    <tr><td><code>+models/AssessmentResult.m</code></td><td><span style="color:#e67e22;">扩展</span></td><td>新增MaxFlexion/MaxExtension/PeakForce/MeanForce等字段</td></tr>
+    <tr style="background:#f0f5fa;"><td><code>+services/DataExportService.m</code></td><td><span style="color:#e67e22;">扩展</span></td><td>新增exportPDF()方法</td></tr>
+  </table>
+</div>
+
+<div class="section" style="margin-top: 20px;">
+  <h3>二、患者信息区 — 可配置目标值</h3>
+  <table style="font-size: 13px; width: 100%; border-collapse: collapse;">
+    <tr style="background:#264b75; color:white;"><th style="padding:4px 8px;">字段</th><th style="padding:4px 8px;">控件</th><th style="padding:4px 8px;">说明</th></tr>
+    <tr style="background:#f0f5fa;"><td>姓名</td><td>uieditfield</td><td>自由输入</td></tr>
+    <tr><td>ID</td><td>uieditfield</td><td>患者编号</td></tr>
+    <tr style="background:#f0f5fa;"><td>患侧</td><td>uidropdown (左侧/右侧)</td><td>—</td></tr>
+    <tr><td>备注</td><td>uieditfield</td><td>诊断等信息</td></tr>
+    <tr style="background:#f0f5fa;"><td>评估日期</td><td>uilabel (自动)</td><td>自动生成</td></tr>
+    <tr><td>动作类型</td><td>uidropdown (屈腕/伸腕)</td><td>—</td></tr>
+    <tr style="background:#f0f5fa;"><td>训练次数</td><td>uispinner (1-30)</td><td>—</td></tr>
+    <tr><td>训练时长(s)</td><td>uispinner (5-300)</td><td>—</td></tr>
+    <tr style="background:#fff3cd;"><td><b>目标ROM(°)</b></td><td><b>uispinner (10-120)</b></td><td><b>治疗师设定的ROM目标</b></td></tr>
+    <tr style="background:#fff3cd;"><td><b>目标力量(%MVC)</b></td><td><b>uispinner (5-100)</b></td><td><b>治疗师设定的力量目标</b></td></tr>
+  </table>
+  <p style="font-size: 12px; color: #e67e22; margin-top: 4px;">★ 高亮行为用户可配置的目标值，用于指标达标判定</p>
+</div>
+
+<div class="section" style="margin-top: 20px;">
+  <h3>三、评估指标体系</h3>
+  <table style="font-size: 13px; width: 100%; border-collapse: collapse;">
+    <tr style="background:#264b75; color:white;">
+      <th style="padding:4px 8px;">维度</th><th style="padding:4px 8px;">权重</th><th style="padding:4px 8px;">指标</th><th style="padding:4px 8px;">计算方式</th></tr>
+    <tr style="background:#f0f5fa;">
+      <td><b>ROM</b></td><td>30%</td>
+      <td>最大屈曲角、最大伸展角、ROM</td>
+      <td>ROM = max(pred_angle) - min(pred_angle)<br>ROM得分 = min(100, ROM/目标ROM × 100)</td></tr>
+    <tr>
+      <td><b>力量</b></td><td>25%</td>
+      <td>平均力量、峰值力量、波动率</td>
+      <td>峰值得分 = min(100, 峰值力/目标力 × 100)<br>波动率 = std(force)/mean(force)</td></tr>
+    <tr style="background:#f0f5fa;">
+      <td><b>稳定性</b></td><td>25%</td>
+      <td>平滑度、波动系数、Tremor指数</td>
+      <td>平滑度基于归一化Jerk<br>波动系数 = CV of angle envelope<br>Tremor = 高频成分能量占比</td></tr>
+    <tr>
+      <td><b>完成度</b></td><td>20%</td>
+      <td>动作完成率</td>
+      <td>基于是否达到目标ROM和力量水平</td></tr>
+  </table>
+</div>
+
+<div class="section" style="margin-top: 20px;">
+  <h3>四、评分等级</h3>
+  <table style="font-size: 13px; width: 50%;">
+    <tr style="background:#264b75; color:white;"><th>分数</th><th>等级</th><th>颜色</th></tr>
+    <tr><td>90-100</td><td><b>优秀</b></td><td style="color:#27ae60;">● #27ae60</td></tr>
+    <tr style="background:#f0f5fa;"><td>80-89</td><td><b>良好</b></td><td style="color:#33a673;">● #33a673</td></tr>
+    <tr><td>70-79</td><td><b>合格</b></td><td style="color:#f39c12;">● #f39c12</td></tr>
+    <tr style="background:#f0f5fa;"><td>60-69</td><td><b>待提高</b></td><td style="color:#e67e22;">● #e67e22</td></tr>
+    <tr><td>&lt;60</td><td><b>较差</b></td><td style="color:#e74c3c;">● #e74c3c</td></tr>
+  </table>
+</div>
+
+<div class="section" style="margin-top: 20px;">
+  <h3>五、PredictionTab 康复模式适配要点</h3>
+  <ol style="font-size: 13px; line-height: 1.8;">
+    <li><b>extractFeatures():</b> rehab模式下不检查 GroundTruthAngle/Force 是否为空，跳过标签对齐步骤</li>
+    <li><b>runPrediction():</b> 跳过指标计算 (RMSE/R²/CC)，调用新方法 updatePlotRehab() 只绘制预测曲线</li>
+    <li><b>数据总线写入:</b> 预测完成后设置 <code>MainApp.PredictedAngle = predAngle</code>，<code>MainApp.PredictedForce = predForce</code>，<code>MainApp.TimeVector = tPred</code></li>
+    <li><b>buildPredictionPanel():</b> rehab模式下不创建误差轴和指标面板</li>
+  </ol>
+</div>
+
+<div class="section" style="margin-top: 20px;">
+  <h3>六、不修改的文件（零接触）</h3>
+  <table style="font-size: 13px; width: 100%;">
+    <tr style="background:#f0f5fa;"><td>✅</td><td><code>DecompositionTab.m</code> — 肌电分解页面不变</td></tr>
+    <tr><td>✅</td><td><code>DataManagementTab.m</code> — 保持空白占位</td></tr>
+    <tr style="background:#f0f5fa;"><td>✅</td><td><code>MainApp.m</code> — 第二阶段不变</td></tr>
+    <tr><td>✅</td><td><code>LoginScreen.m</code> / <code>main.m</code> — 第一阶段产物不变</td></tr>
+    <tr style="background:#f0f5fa;"><td>✅</td><td><code>+config/*</code> / <code>+models/PatientInfo</code> 等 — 保持不变</td></tr>
+    <tr><td>✅</td><td>所有算法核心代码 — 不变</td></tr>
+  </table>
+</div>
+

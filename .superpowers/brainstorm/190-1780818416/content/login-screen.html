@@ -1,0 +1,136 @@
+<h2>登录界面 + 模式选择 — 设计方案</h2>
+<p class="subtitle">第一阶段：登录界面 + 模式切换 + 系统框架搭建</p>
+
+<div class="section">
+  <h3>设计方案：完整登录界面</h3>
+  <p>界面风格与现有系统保持一致（配色、字体均沿用 AppConstants）。</p>
+</div>
+
+<div class="mockup">
+  <div class="mockup-header">登录界面 (1400×900)</div>
+  <div class="mockup-body">
+    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 750px; background: #f0f5fa; font-family: 'Microsoft YaHei', sans-serif;">
+
+      <!-- 标题区域 -->
+      <div style="text-align: center; margin-bottom: 60px;">
+        <div style="font-size: 42px; font-weight: bold; color: #264b75; margin-bottom: 12px;">肌电慧控</div>
+        <div style="font-size: 16px; color: #808080;">基于高密度肌电分解的腕关节运动解码与康复评估系统</div>
+        <div style="font-size: 14px; color: #aaa; margin-top: 8px;">v1.0</div>
+      </div>
+
+      <!-- 分隔线 -->
+      <div style="width: 100px; height: 3px; background: #264b75; margin-bottom: 50px;"></div>
+
+      <!-- 模式选择按钮 -->
+      <div style="display: flex; gap: 60px;">
+        <div style="width: 280px; height: 180px; background: #264b75; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; cursor: pointer; box-shadow: 0 4px 20px rgba(38,75,117,0.3);">
+          <div style="font-size: 35px; margin-bottom: 8px;">🔬</div>
+          <div style="font-size: 20px; font-weight: bold;">模型验证系统</div>
+          <div style="font-size: 12px; margin-top: 8px; opacity: 0.8;">数据采集 · 肌电分解 · 双输出预测</div>
+        </div>
+        <div style="width: 280px; height: 180px; background: #33a673; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; cursor: pointer; box-shadow: 0 4px 20px rgba(51,166,115,0.3);">
+          <div style="font-size: 35px; margin-bottom: 8px;">🩺</div>
+          <div style="font-size: 20px; font-weight: bold;">康复评估系统</div>
+          <div style="font-size: 12px; margin-top: 8px; opacity: 0.8;">数据采集 · 肌电分解 · 预测 · 评估 · 管理</div>
+        </div>
+      </div>
+
+      <!-- 底部提示 -->
+      <div style="margin-top: 70px; font-size: 12px; color: #ccc;">请选择系统模式以继续</div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 30px;">
+  <h3>系统流转架构</h3>
+</div>
+
+<pre style="background: #1e1e1e; color: #d4d4d4; padding: 20px; border-radius: 8px; font-family: Consolas, monospace; font-size: 13px; line-height: 1.8;">
+
+main.m 启动
+  │
+  ▼
+┌─────────────────────────┐
+│     LoginScreen         │  ← 新建类
+│  肌电慧控 | v1.0        │
+│  [模型验证] [康复评估]   │
+└───────┬─────────────────┘
+        │ 选择模式
+        ▼
+  ┌──────────┐    ┌──────────┐
+  │ 模型验证  │    │ 康复评估  │
+  │ 3 Tab    │    │ 5 Tab    │
+  │          │    │          │
+  │ 数据采集  │    │ 数据采集  │  ← 复用
+  │ 肌电分解  │    │ 肌电分解  │  ← 复用
+  │ 双输出预测│    │ 双输出预测│  ← 复用
+  │          │    │ 康复评估  │  ← 空白占位
+  │          │    │ 数据管理  │  ← 空白占位
+  └────┬─────┘    └────┬─────┘
+       │ [返回登录]      │ [返回登录]
+       └────────┬────────┘
+                ▼
+         返回 LoginScreen
+</pre>
+
+<div class="section" style="margin-top: 30px;">
+  <h3>代码改动清单</h3>
+  <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+    <tr style="background: #264b75; color: white;">
+      <th style="padding: 8px 12px; text-align: left;">文件</th>
+      <th style="padding: 8px 12px; text-align: left;">操作</th>
+      <th style="padding: 8px 12px; text-align: left;">说明</th>
+    </tr>
+    <tr style="background: #e8f0f8;">
+      <td style="padding: 8px 12px;"><code>LoginScreen.m</code></td>
+      <td style="padding: 8px 12px;"><span style="color: #33a673; font-weight: bold;">新建</span></td>
+      <td style="padding: 8px 12px;">独立的登录/模式选择界面类</td>
+    </tr>
+    <tr>
+      <td style="padding: 8px 12px;"><code>MainApp.m</code></td>
+      <td style="padding: 8px 12px;"><span style="color: #e67e22; font-weight: bold;">修改</span></td>
+      <td style="padding: 8px 12px;">支持 mode 参数、动态Tab、返回按钮</td>
+    </tr>
+    <tr style="background: #e8f0f8;">
+      <td style="padding: 8px 12px;"><code>main.m</code></td>
+      <td style="padding: 8px 12px;"><span style="color: #e67e22; font-weight: bold;">修改</span></td>
+      <td style="padding: 8px 12px;">生命周期编排：登录→MainApp→登录循环</td>
+    </tr>
+    <tr>
+      <td style="padding: 8px 12px;"><code>现有 Tab 类</code></td>
+      <td style="padding: 8px 12px;"><span style="color: #33a673; font-weight: bold;">不改</span></td>
+      <td style="padding: 8px 12px;">数据采集、肌电分解、双输出预测 — 完全不变</td>
+    </tr>
+  </table>
+</div>
+
+<div class="section" style="margin-top: 30px;">
+  <h3>MainApp 改动要点</h3>
+  <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+    <tr style="background: #264b75; color: white;">
+      <th style="padding: 6px 10px; text-align: left;">位置</th>
+      <th style="padding: 6px 10px; text-align: left;">改动内容</th>
+    </tr>
+    <tr style="background: #e8f0f8;">
+      <td style="padding: 6px 10px;">构造函数</td>
+      <td style="padding: 6px 10px;">新增 <code>mode</code> 参数 ('model_validation' | 'rehab_assessment')</td>
+    </tr>
+    <tr>
+      <td style="padding: 6px 10px;">buildUI</td>
+      <td style="padding: 6px 10px;">动态设置窗口标题："肌电慧控 - 模型验证系统" / "肌电慧控 - 康复评估系统"</td>
+    </tr>
+    <tr style="background: #e8f0f8;">
+      <td style="padding: 6px 10px;">buildStatusBar</td>
+      <td style="padding: 6px 10px;">在状态栏左侧标题后新增【返回登录】按钮</td>
+    </tr>
+    <tr>
+      <td style="padding: 6px 10px;">buildTabGroup</td>
+      <td style="padding: 6px 10px;">根据 mode 创建不同数量的 Tab（3个 或 5个）</td>
+    </tr>
+    <tr style="background: #e8f0f8;">
+      <td style="padding: 6px 10px;">onClose</td>
+      <td style="padding: 6px 10px;">新增返回登录处理（区别于直接关闭窗口）</td>
+    </tr>
+  </table>
+</div>
+

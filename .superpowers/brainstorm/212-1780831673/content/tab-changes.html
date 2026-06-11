@@ -1,0 +1,74 @@
+<h2>采集页 & 预测页 — 康复模式修改</h2>
+<p class="subtitle">通过 <code>obj.MainApp.Mode</code> 判断，仅在 rehab 模式下生效</p>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">数据采集页 (AcquisitionTab)</div>
+    <div class="mockup-body" style="font-size: 13px;">
+      <div style="background:#f0f5fa; padding: 10px; border-radius: 4px;">
+        <b>模型验证模式 (当前)</b>
+        <div style="margin-top: 4px; color: #555;">
+          ━━ 1. 屈肌EMG [选择文件...]<br>
+          ━━ 2. 伸肌EMG [选择文件...]<br>
+          <span style="color:#c0392b;">━━ 3. 角度数据 [选择文件...]</span><br>
+          <span style="color:#c0392b;">━━ 4. 力数据   [选择文件...]</span><br>
+          ━━ [一键加载] [预览信号]
+        </div>
+      </div>
+      <div style="background:#e8f5e9; padding: 10px; border-radius: 4px; margin-top: 8px;">
+        <b>康复评估模式 (修改后)</b>
+        <div style="margin-top: 4px; color: #555;">
+          ━━ 1. 屈肌EMG [选择文件...]<br>
+          ━━ 2. 伸肌EMG [选择文件...]<br>
+          <span style="color:#999; text-decoration: line-through;">✕ 角度/力 (已删除)</span><br>
+          ━━ [一键加载] [预览信号]
+        </div>
+      </div>
+      <div style="margin-top: 8px; font-size: 11px; color: #777;">
+        <b>改动要点：</b>buildLoadPanel 中根据 <code>isRehab</code> 跳过角度和力的UI创建和加载逻辑。<br>
+        信号预览保持不变。
+      </div>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">双输出预测页 (PredictionTab)</div>
+    <div class="mockup-body" style="font-size: 13px;">
+      <div style="background:#f0f5fa; padding: 10px; border-radius: 4px;">
+        <b>模型验证模式 (当前)</b>
+        <div style="margin-top: 4px; color: #555;">
+          ━━ 顶部配置区: 被试/动作 · 模型状态 · 模板状态 · [提取特征] [开始预测]<br>
+          ━━ 左: 角度预测 (真实曲线 + 预测曲线 + 误差曲线 + RMSE/MAE/R²/CC)<br>
+          ━━ 右: 力预测 (真实曲线 + 预测曲线 + 误差曲线 + RMSE/MAE/R²/CC)
+        </div>
+      </div>
+      <div style="background:#e8f5e9; padding: 10px; border-radius: 4px; margin-top: 8px;">
+        <b>康复评估模式 (修改后)</b>
+        <div style="margin-top: 4px; color: #555;">
+          ━━ 顶部配置区: 同前 (不变)<br>
+          ━━ 左: <b>角度预测结果</b> — 仅预测角度曲线<br>
+          ━━ 右: <b>力量预测结果</b> — 仅预测力量曲线<br>
+          <span style="color:#999; text-decoration: line-through;">✕ 真实曲线 / 误差曲线 / 性能指标 (全部删除)</span>
+        </div>
+      </div>
+      <div style="margin-top: 8px; font-size: 11px; color: #777;">
+        <b>改动要点：</b><br>
+        1. extractFeatures() 在 rehab 模式下不要求真实标签<br>
+        2. runPrediction() 在 rehab 模式下跳过指标计算<br>
+        3. 只绘制预测曲线，不绘制真实值和误差<br>
+        4. 预测结果存入 MainApp.PredictedAngle/Force (供评估页读取)
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 20px;">
+  <h3>关键数据流修正</h3>
+  <p>当前 PredictionTab 将预测结果存在 <code>obj.PredictedAngle</code>(私有属性)，但 AssessmentTab 需要从 <code>obj.MainApp.PredictedAngle</code> 读取。需要在预测完成后同步写入 MainApp 数据总线。</p>
+  <pre style="background: #1e1e1e; color: #d4d4d4; padding: 12px; border-radius: 6px; font-size: 12px;">
+% 在 PredictionTab.runPrediction() 末尾添加:
+obj.MainApp.PredictedAngle = predAngle;
+obj.MainApp.PredictedForce = predForce;
+obj.MainApp.TimeVector = tPred;    % (时间向量)</pre>
+</div>
+

@@ -126,61 +126,90 @@ classdef PredictionTab < handle
         function buildPredictionPanel(obj, parent, type)
             import config.AppConstants
 
-            grid = uigridlayout(parent, [3, 1], ...
-                'RowHeight', {'1x', '1x', 'fit'}, ...
-                'Padding', [5,5,5,5], 'RowSpacing', 8);
+            isRehab = obj.MainApp.Mode == "rehab_assessment";
 
-            axCurve = uiaxes(grid);
-            axCurve.XLabel.String = '时间 (s)';
-            if strcmp(type, 'angle')
-                axCurve.YLabel.String = '角度 (°)';
-                axCurve.Title.String = '角度预测曲线';
+            if isRehab
+                % 康复模式: 单行布局 (仅预测曲线)
+                grid = uigridlayout(parent, [1, 1], ...
+                    'RowHeight', {'1x'}, ...
+                    'Padding', [5,5,5,5], 'RowSpacing', 8);
+
+                axCurve = uiaxes(grid);
+                axCurve.XLabel.String = '时间 (s)';
+                if strcmp(type, 'angle')
+                    axCurve.YLabel.String = '角度 (°)';
+                    axCurve.Title.String = '角度预测结果';
+                else
+                    axCurve.YLabel.String = '力 (%MVC)';
+                    axCurve.Title.String = '力量预测结果';
+                end
+                axCurve.XGrid = 'on';
+                axCurve.YGrid = 'on';
+                hold(axCurve, 'on');
+
+                if strcmp(type, 'angle')
+                    obj.AngleAxes = axCurve;
+                else
+                    obj.ForceAxes = axCurve;
+                end
             else
-                axCurve.YLabel.String = '力 (%MVC)';
-                axCurve.Title.String = '力预测曲线';
-            end
-            axCurve.XGrid = 'on';
-            axCurve.YGrid = 'on';
-            hold(axCurve, 'on');
+                % 模型验证模式: 三行布局 (曲线 + 误差 + 指标)
+                grid = uigridlayout(parent, [3, 1], ...
+                    'RowHeight', {'1x', '1x', 'fit'}, ...
+                    'Padding', [5,5,5,5], 'RowSpacing', 8);
 
-            axError = uiaxes(grid);
-            axError.XLabel.String = '时间 (s)';
-            axError.YLabel.String = '误差';
-            axError.Title.String = '预测误差';
-            axError.XGrid = 'on';
-            axError.YGrid = 'on';
-            hold(axError, 'on');
+                axCurve = uiaxes(grid);
+                axCurve.XLabel.String = '时间 (s)';
+                if strcmp(type, 'angle')
+                    axCurve.YLabel.String = '角度 (°)';
+                    axCurve.Title.String = '角度预测曲线';
+                else
+                    axCurve.YLabel.String = '力 (%MVC)';
+                    axCurve.Title.String = '力预测曲线';
+                end
+                axCurve.XGrid = 'on';
+                axCurve.YGrid = 'on';
+                hold(axCurve, 'on');
 
-            metricsPanel = uipanel(grid, 'Title', '性能指标', ...
-                'BackgroundColor', AppConstants.COLOR_PANEL_BG);
-            metGrid = uigridlayout(metricsPanel, [2, 2], ...
-                'Padding', [8,8,8,8], 'RowSpacing', 5, 'ColumnSpacing', 10);
+                axError = uiaxes(grid);
+                axError.XLabel.String = '时间 (s)';
+                axError.YLabel.String = '误差';
+                axError.Title.String = '预测误差';
+                axError.XGrid = 'on';
+                axError.YGrid = 'on';
+                hold(axError, 'on');
 
-            uilabel(metGrid, 'Text', 'RMSE:', 'FontWeight', 'bold');
-            rmseLabel = uilabel(metGrid, 'Text', '--');
-            uilabel(metGrid, 'Text', 'MAE:', 'FontWeight', 'bold');
-            maeLabel = uilabel(metGrid, 'Text', '--');
-            uilabel(metGrid, 'Text', 'R²:', 'FontWeight', 'bold');
-            r2Label = uilabel(metGrid, 'Text', '--');
-            uilabel(metGrid, 'Text', 'CC:', 'FontWeight', 'bold');
-            ccLabel = uilabel(metGrid, 'Text', '--');
+                metricsPanel = uipanel(grid, 'Title', '性能指标', ...
+                    'BackgroundColor', AppConstants.COLOR_PANEL_BG);
+                metGrid = uigridlayout(metricsPanel, [2, 2], ...
+                    'Padding', [8,8,8,8], 'RowSpacing', 5, 'ColumnSpacing', 10);
 
-            if strcmp(type, 'angle')
-                obj.AngleAxes = axCurve;
-                obj.AngleErrorAxes = axError;
-                obj.AngleMetricsGrid = metGrid;
-                obj.angleRMSE = rmseLabel;
-                obj.angleMAE = maeLabel;
-                obj.angleR2 = r2Label;
-                obj.angleCC = ccLabel;
-            else
-                obj.ForceAxes = axCurve;
-                obj.ForceErrorAxes = axError;
-                obj.ForceMetricsGrid = metGrid;
-                obj.forceRMSE = rmseLabel;
-                obj.forceMAE = maeLabel;
-                obj.forceR2 = r2Label;
-                obj.forceCC = ccLabel;
+                uilabel(metGrid, 'Text', 'RMSE:', 'FontWeight', 'bold');
+                rmseLabel = uilabel(metGrid, 'Text', '--');
+                uilabel(metGrid, 'Text', 'MAE:', 'FontWeight', 'bold');
+                maeLabel = uilabel(metGrid, 'Text', '--');
+                uilabel(metGrid, 'Text', 'R²:', 'FontWeight', 'bold');
+                r2Label = uilabel(metGrid, 'Text', '--');
+                uilabel(metGrid, 'Text', 'CC:', 'FontWeight', 'bold');
+                ccLabel = uilabel(metGrid, 'Text', '--');
+
+                if strcmp(type, 'angle')
+                    obj.AngleAxes = axCurve;
+                    obj.AngleErrorAxes = axError;
+                    obj.AngleMetricsGrid = metGrid;
+                    obj.angleRMSE = rmseLabel;
+                    obj.angleMAE = maeLabel;
+                    obj.angleR2 = r2Label;
+                    obj.angleCC = ccLabel;
+                else
+                    obj.ForceAxes = axCurve;
+                    obj.ForceErrorAxes = axError;
+                    obj.ForceMetricsGrid = metGrid;
+                    obj.forceRMSE = rmseLabel;
+                    obj.forceMAE = maeLabel;
+                    obj.forceR2 = r2Label;
+                    obj.forceCC = ccLabel;
+                end
             end
         end
 
@@ -243,7 +272,7 @@ classdef PredictionTab < handle
         % ---------- 特征提取 ----------
         function extractFeatures(obj)
             % 完整ST特征提取管线 (匹配训练脚本 step6):
-            %   累计脉冲计数 → sqrt变换 → 通道归一化 → 标签对齐
+            %   累计脉冲计数 → sqrt变换 → 通道归一化 → 标签对齐(可选)
 
             spikeTrain = obj.MainApp.SpikeTrainMatrix;
             if isempty(spikeTrain)
@@ -251,9 +280,11 @@ classdef PredictionTab < handle
                 return;
             end
 
+            isRehab = obj.MainApp.Mode == "rehab_assessment";
             trueAngle = obj.MainApp.GroundTruthAngle;
             trueForce = obj.MainApp.GroundTruthForce;
-            if isempty(trueAngle) || isempty(trueForce)
+
+            if ~isRehab && (isempty(trueAngle) || isempty(trueForce))
                 uialert(obj.Parent, '请先在数据采集页加载角度和力标签数据', '缺少标签', 'Icon', 'warning');
                 return;
             end
@@ -293,9 +324,13 @@ classdef PredictionTab < handle
                 end
                 obj.FeatureNormParams = normParams;
 
-                % Step 4: 标签对齐 — 角度和力降采样到特征窗数
-                obj.AlignedAngle = obj.downsampleToMatch(trueAngle, nWindows);
-                obj.AlignedForce = obj.downsampleToMatch(trueForce, nWindows);
+                % Step 4: 标签对齐 — 仅模型验证模式需要
+                if ~isRehab && ~isempty(trueAngle) && ~isempty(trueForce)
+                    obj.AlignedAngle = obj.downsampleToMatch(trueAngle, nWindows);
+                    obj.AlignedForce = obj.downsampleToMatch(trueForce, nWindows);
+                    obj.appendLog(sprintf('标签对齐: 角度%d点→%d窗, 力%d点→%d窗', ...
+                        length(trueAngle), nWindows, length(trueForce), nWindows));
+                end
 
                 obj.FeatureMatrix = featureMatrix;
                 obj.TimeVector = timeVector;
@@ -303,8 +338,6 @@ classdef PredictionTab < handle
                 obj.UIPredictBtn.Enable = 'on';
 
                 obj.appendLog(sprintf('特征提取成功: %d窗 × %dMU (sqrt+归一化)', nWindows, nMU));
-                obj.appendLog(sprintf('标签对齐: 角度%d点→%d窗, 力%d点→%d窗', ...
-                    length(trueAngle), nWindows, length(trueForce), nWindows));
             catch e
                 obj.appendLog(sprintf('特征提取失败: %s', e.message));
                 obj.IsFeatureReady = false;
@@ -330,6 +363,7 @@ classdef PredictionTab < handle
 
             obj.appendLog('===== 开始预测 =====');
             tTotal = tic;
+            isRehab = obj.MainApp.Mode == "rehab_assessment";
             try
                 seqLen = obj.SeqLen;
                 if ~isempty(obj.PredictionService.SeqLen)
@@ -344,36 +378,65 @@ classdef PredictionTab < handle
                     return;
                 end
 
-                % 序列预测: 输入(c×seqLen)序列, 输出[angle, force]
                 [predAngle, predForce] = obj.PredictionService.predict(obj.FeatureMatrix, seqLen);
                 obj.PredictedAngle = predAngle;
                 obj.PredictedForce = predForce;
 
-                % 标签对齐: 序列预测输出对应第seqLen个窗之后的标签
-                trueAngleDS = obj.AlignedAngle(seqLen:end);
-                trueForceDS = obj.AlignedForce(seqLen:end);
-
                 % 对齐时间向量
                 tPred = obj.TimeVector(seqLen:end);
 
-                % 计算真实指标
-                angleMetrics = utils.AngleMetrics.computeAll(trueAngleDS, predAngle, '角度');
-                forceMetrics = utils.AngleMetrics.computeAll(trueForceDS, predForce, '力');
+                % 写入MainApp数据总线 (供康复评估页读取)
+                obj.MainApp.PredictedAngle = predAngle;
+                obj.MainApp.PredictedForce = predForce;
+                obj.MainApp.TimeVector = tPred;
 
-                obj.updatePlotAndMetrics('angle', trueAngleDS, predAngle, angleMetrics, tPred);
-                obj.updatePlotAndMetrics('force', trueForceDS, predForce, forceMetrics, tPred);
+                if isRehab
+                    % 康复模式: 仅绘制预测曲线
+                    obj.updatePlotRehab('angle', predAngle, tPred);
+                    obj.updatePlotRehab('force', predForce, tPred);
+                else
+                    % 模型验证模式: 含真实值对比和指标
+                    trueAngleDS = obj.AlignedAngle(seqLen:end);
+                    trueForceDS = obj.AlignedForce(seqLen:end);
+                    angleMetrics = utils.AngleMetrics.computeAll(trueAngleDS, predAngle, '角度');
+                    forceMetrics = utils.AngleMetrics.computeAll(trueForceDS, predForce, '力');
+                    obj.updatePlotAndMetrics('angle', trueAngleDS, predAngle, angleMetrics, tPred);
+                    obj.updatePlotAndMetrics('force', trueForceDS, predForce, forceMetrics, tPred);
+                    obj.appendLog(sprintf('角度: RMSE=%.2f, MAE=%.2f, R²=%.3f, CC=%.3f', ...
+                        angleMetrics.RMSE, angleMetrics.MAE, angleMetrics.R2, angleMetrics.CC));
+                    obj.appendLog(sprintf('力:   RMSE=%.2f, MAE=%.2f, R²=%.3f, CC=%.3f', ...
+                        forceMetrics.RMSE, forceMetrics.MAE, forceMetrics.R2, forceMetrics.CC));
+                end
 
                 elapsed = toc(tTotal);
                 obj.appendLog(sprintf('预测完成, 用时 %.2fs', elapsed));
-                obj.appendLog(sprintf('角度: RMSE=%.2f, MAE=%.2f, R²=%.3f, CC=%.3f', ...
-                    angleMetrics.RMSE, angleMetrics.MAE, angleMetrics.R2, angleMetrics.CC));
-                obj.appendLog(sprintf('力:   RMSE=%.2f, MAE=%.2f, R²=%.3f, CC=%.3f', ...
-                    forceMetrics.RMSE, forceMetrics.MAE, forceMetrics.R2, forceMetrics.CC));
                 obj.appendLog('===== 预测结束 =====');
             catch e
                 obj.appendLog(sprintf('预测失败: %s', e.message));
                 uialert(obj.Parent, e.message, '预测错误', 'Icon', 'error');
             end
+        end
+
+        function updatePlotRehab(obj, type, predVals, tPred)
+            if strcmp(type, 'angle')
+                axCurve = obj.AngleAxes;
+                ylabelStr = '角度 (°)';
+                titleStr = '角度预测结果';
+            else
+                axCurve = obj.ForceAxes;
+                ylabelStr = '力 (N)';
+                titleStr = '力量预测结果';
+            end
+
+            if isempty(axCurve) || ~isvalid(axCurve), return; end
+
+            cla(axCurve);
+            plot(axCurve, tPred, predVals, 'b-', 'LineWidth', 1.5);
+            xlabel(axCurve, '时间 (s)');
+            ylabel(axCurve, ylabelStr);
+            title(axCurve, titleStr);
+            axCurve.XGrid = 'on';
+            axCurve.YGrid = 'on';
         end
 
         function updatePlotAndMetrics(obj, type, trueVals, predVals, metrics, tPred)

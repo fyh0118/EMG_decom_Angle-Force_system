@@ -12,7 +12,21 @@ function main()
     rootPath = fileparts(mfilename('fullpath'));
     addpath(genpath(rootPath));
 
-    % 启动主应用
-    app = MainApp();
-    app.launch();
+    % 登录→系统→返回登录 循环
+    while true
+        loginScreen = LoginScreen();
+        mode = loginScreen.show();
+
+        if mode == ""
+            break;
+        end
+
+        app = MainApp(mode);
+        app.launch();
+        waitfor(app.getFigure());
+
+        if ~app.ReturnToLogin
+            break;
+        end
+    end
 end

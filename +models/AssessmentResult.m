@@ -32,6 +32,30 @@ classdef AssessmentResult
         % 综合评分 (0-100)
         OverallScore    double = NaN
 
+        % ---- 康复评估专用字段 ----
+        % ROM
+        MaxFlexion      double = NaN
+        MaxExtension     double = NaN
+        ROMScore        double = NaN
+        TargetROM       double = NaN    % 用户设定的目标ROM
+        % 力量
+        PeakForce       double = NaN
+        MeanForce       double = NaN
+        ForceFluctuation double = NaN
+        ForceScore      double = NaN
+        % TargetForce     double = NaN    % 用户设定的目标力量
+        % 稳定性
+        SmoothnessIdx   double = NaN
+        FluctuationCoeff double = NaN
+        TremorIndex     double = NaN
+        StabilityScore  double = NaN
+        StabilityGrade  string = ""
+        % 完成度
+        CompletionScore double = NaN
+        % 综合
+        RehabGrade      string = ""
+        RehabRecommendation string = ""
+
         % 五维评分
         DimensionScores struct
 

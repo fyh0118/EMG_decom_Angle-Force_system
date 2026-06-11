@@ -116,6 +116,62 @@ classdef AssessmentService < handle
             score = max(0, min(100, score));
         end
 
+        function result = runRehabAssessment(predictedAngle, predictedForce, ...
+                timeVector, targetROM, targetForce, patientInfo)
+            % 康复模式评估（无真实标签）
+            import models.AssessmentResult
+            import utils.RehabMetrics
+
+            result = AssessmentResult();
+            if nargin >= 6 && ~isempty(patientInfo)
+                result.PatientID = patientInfo.PatientID;
+            end
+            result.Date = datetime('now');
+            result.TargetROM = targetROM;
+            result.TargetForce = targetForce;
+
+            % 1. ROM评估
+            romResult = RehabMetrics.computeROM(predictedAngle);
+            result.MaxFlexion = romResult.MaxFlexion;
+            result.MaxExtension = romResult.MaxExtension;
+            result.ROM = romResult.ROM;
+            result.ROMScore = RehabMetrics.computeROMScore(romResult.ROM, targetROM);
+            result.ROMPercent = result.ROMScore;
+
+            % 2. 力量评估
+            forceResult = RehabMetrics.computeForceMetrics(predictedForce);
+            result.PeakForce = forceResult.PeakForce;
+            result.MeanForce = forceResult.MeanForce;
+            result.ForceFluctuation = forceResult.FluctuationRate;
+            result.ForceScore = RehabMetrics.computeForceScore(forceResult.PeakForce, targetForce);
+
+            % 3. 稳定性评估
+            fs = 2000 / max(1, (length(predictedAngle) / max(timeVector(end), 0.01)));
+            stabResult = RehabMetrics.computeStability(predictedAngle, fs);
+            result.SmoothnessIdx = stabResult.Smoothness;
+            result.FluctuationCoeff = stabResult.FluctuationCoeff;
+            result.TremorIndex = stabResult.TremorIndex;
+            result.StabilityScore = stabResult.Score;
+            result.StabilityGrade = stabResult.Grade;
+
+            % 4. 动作完成度
+            result.CompletionScore = RehabMetrics.computeCompletionScore(...
+                predictedAngle, targetROM, predictedForce, targetForce);
+
+            % 5. 综合评分
+            [result.OverallScore, result.RehabGrade] = RehabMetrics.computeCompositeScore(...
+                result.ROMScore, result.ForceScore, result.StabilityScore, result.CompletionScore);
+
+            % 6. 康复建议
+            result.RehabRecommendation = RehabMetrics.generateRecommendation(...
+                result.ROMScore, result.ForceScore, result.StabilityScore, result.CompletionScore);
+
+            % 7. 保存时间序列
+            result.TimeVector = timeVector;
+            result.PredictedAngle = predictedAngle;
+            result.PredictedForce = predictedForce;
+        end
+
         function [recommendation] = generateRecommendation(result)
             % 生成康复建议
             recommendations = {};

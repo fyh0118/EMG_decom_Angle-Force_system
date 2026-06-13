@@ -87,6 +87,28 @@ classdef PredictionService < handle
                     end
                 end
 
+                % 检查 net.mat 自身是否包含标签归一化参数 (angle_range + force_range)
+                if isfield(loaded, 'angle_range') && isfield(loaded, 'force_range')
+                    if ~isfield(obj.NormParams, 'angle_range')
+                        obj.NormParams.angle_range = loaded.angle_range;
+                    end
+                    if ~isfield(obj.NormParams, 'force_range')
+                        obj.NormParams.force_range = loaded.force_range;
+                    end
+                    if isfield(loaded, 'angle_min')
+                        obj.NormParams.angle_min = loaded.angle_min;
+                    elseif ~isfield(obj.NormParams, 'angle_min')
+                        obj.NormParams.angle_min = 0;
+                    end
+                    if isfield(loaded, 'force_min')
+                        obj.NormParams.force_min = loaded.force_min;
+                    elseif ~isfield(obj.NormParams, 'force_min')
+                        obj.NormParams.force_min = 0;
+                    end
+                    fprintf('[预测服务] 从net.mat加载标签反归一化: angle_range=%.2f, force_range=%.2f\n', ...
+                        obj.NormParams.angle_range, obj.NormParams.force_range);
+                end
+
                 success = true;
                 msg = sprintf('模型加载成功: %s (%s)', modelPath, obj.ModelInfo.type);
                 fprintf('[预测服务] %s\n', msg);

@@ -5,6 +5,8 @@ classdef AppConstants
         % ---- 窗口尺寸 ----
         WINDOW_WIDTH = 1400
         WINDOW_HEIGHT = 980
+        LOGIN_WINDOW_WIDTH = 800
+        LOGIN_WINDOW_HEIGHT = 500
         STATUS_BAR_HEIGHT = 36
         % ---- 模板文件夹 ----
         TEMPLATE_ROOT = 'F:\EMG_decom_angle_system\模板';   % 根据您的实际路径修改

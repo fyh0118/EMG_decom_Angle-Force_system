@@ -11,6 +11,10 @@ classdef DataManagementTab < handle
         % 记录表格
         UITable
         UIDetailGrid
+        UIDeleteBtn                 % 删除按钮（切换模式用）
+        IsDeleteMode  logical = false
+        DeleteChecks  logical = []   % 复选框勾选（长度=Records）
+        FilteredIndices  double = [] % 当前显示行→Records索引映射
 
         % 查询控件
         UIFilterPatient
@@ -23,6 +27,10 @@ classdef DataManagementTab < handle
         TrendAxesROM
         TrendAxesForce
         TrendAxesScore
+
+        % 趋势筛选
+        UITrendFilterPatient
+        UITrendFilterAction
 
         % 统计标签
         StatTotalPatients
@@ -100,8 +108,8 @@ classdef DataManagementTab < handle
                 'Padding', [5, 5, 5, 5], 'RowSpacing', 4);
 
             % 查询过滤栏
-            filterGrid = uigridlayout(rg, [1, 10], ...
-                'ColumnWidth', {'fit', '1x', 'fit', '1x', 'fit', '1x', 'fit', 'fit', 'fit', 'fit'}, ...
+            filterGrid = uigridlayout(rg, [1, 9], ...
+                'ColumnWidth', {'fit', '1x', 'fit', '1x', 'fit', '1x', 'fit', 'fit', 'fit'}, ...
                 'Padding', [0, 0, 0, 0], 'ColumnSpacing', 4);
 
             fnt = AppConstants.FONT_NAME;
@@ -126,23 +134,20 @@ classdef DataManagementTab < handle
                 'ButtonPushedFcn', @(~,~) obj.refreshTable());
             uibutton(filterGrid, 'Text', '刷新', 'FontName', fnt, ...
                 'ButtonPushedFcn', @(~,~) obj.scanRecords());
-            uibutton(filterGrid, 'Text', '删除', 'FontName', fnt, ...
+            obj.UIDeleteBtn = uibutton(filterGrid, 'Text', '删除', 'FontName', fnt, ...
                 'BackgroundColor', AppConstants.COLOR_DANGER, 'FontColor', [1 1 1], ...
                 'ButtonPushedFcn', @(~,~) obj.deleteSelected());
-            uibutton(filterGrid, 'Text', '演示数据', 'FontName', fnt, ...
-                'BackgroundColor', AppConstants.COLOR_SECONDARY, 'FontColor', [1 1 1], ...
-                'ButtonPushedFcn', @(~,~) obj.generateDemoData());
-
             % 记录表格
             colNames = {'日期', '患者ID', '姓名', '患侧', '动作', '时长(s)', ...
                 'ROM(°)', '峰值力(N)', '稳定性', '综合分', '等级'};
             obj.UITable = uitable(rg, ...
                 'ColumnName', colNames, ...
-                'ColumnWidth', {90, 65, 55, 40, 60, 55, 55, 65, 45, 50, 50}, ...
+                'ColumnWidth', {120, 75, 65, 50, 70, 60, 60, 75, 55, 60, 60}, ...
                 'RowName', {}, ...
                 'FontName', AppConstants.FONT_NAME, ...
                 'FontSize', AppConstants.FONT_SIZE_SMALL, ...
-                'CellSelectionCallback', @(~, evt) obj.onRecordSelected(evt));
+                'CellSelectionCallback', @(~, evt) obj.onRecordSelected(evt), ...
+                'CellEditCallback', @(~, evt) obj.onCheckboxChanged(evt));
         end
 
         function onRecordSelected(obj, evt)
@@ -230,8 +235,28 @@ classdef DataManagementTab < handle
         function buildTrendPanel(obj, parent)
             import config.AppConstants
 
-            tg = uigridlayout(parent, [3, 1], ...
+            tg = uigridlayout(parent, [4, 1], ...
+                'RowHeight', {'fit', '1x', '1x', '1x'}, ...
                 'Padding', [5, 5, 5, 5], 'RowSpacing', 4);
+
+            % 趋势筛选栏
+            trendFilter = uigridlayout(tg, [1, 4], ...
+                'ColumnWidth', {'fit', '1x', 'fit', '1x'}, ...
+                'Padding', [0, 0, 0, 0], 'ColumnSpacing', 4);
+            fnt = AppConstants.FONT_NAME;
+            fsz = AppConstants.FONT_SIZE_SMALL;
+
+            uilabel(trendFilter, 'Text', '患者:', 'FontName', fnt, 'FontSize', fsz);
+            obj.UITrendFilterPatient = uidropdown(trendFilter, ...
+                'Items', {'全部'}, 'Value', '全部', ...
+                'FontName', fnt, 'FontSize', fsz, ...
+                'ValueChangedFcn', @(~,~) obj.updateTrends());
+
+            uilabel(trendFilter, 'Text', '动作:', 'FontName', fnt, 'FontSize', fsz);
+            obj.UITrendFilterAction = uidropdown(trendFilter, ...
+                'Items', {'全部', '屈伸动作', '旋转动作'}, 'Value', '全部', ...
+                'FontName', fnt, 'FontSize', fsz, ...
+                'ValueChangedFcn', @(~,~) obj.updateTrends());
 
             obj.TrendAxesROM = uiaxes(tg);
             title(obj.TrendAxesROM, 'ROM 恢复趋势', 'FontName', AppConstants.FONT_NAME);
@@ -324,73 +349,6 @@ classdef DataManagementTab < handle
             obj.StatLastDate = statLabels{8};
         end
 
-        % ==================== 演示数据生成 ====================
-        function generateDemoData(obj)
-            patients = { ...
-                struct('id', 'P001', 'name', '张三', 'side', '右侧'), ...
-                struct('id', 'P002', 'name', '李四', 'side', '左侧'), ...
-                struct('id', 'P003', 'name', '王五', 'side', '右侧') ...
-                };
-            actions = {'屈伸动作', '旋转动作'};
-            baseDates = datetime(2026, 5, 1):7:datetime(2026, 6, 8);
-
-            for p = 1:3
-                baseROM = 60 + rand * 40;      % 起始ROM 60-100
-                baseForce = 15 + rand * 20;     % 起始力量 15-35N
-                baseScore = 55 + rand * 25;     % 起始评分 55-80
-
-                for s = 1:5
-                    progress = (s - 1) / 4;     % 0 → 1 进展
-
-                    rec.PatientName = patients{p}.name;
-                    rec.PatientID = patients{p}.id;
-                    rec.AffectedSide = patients{p}.side;
-                    rec.Date = datestr(baseDates(s), 'yyyy-mm-dd');
-                    rec.DateNum = datenum(baseDates(s));
-                    rec.ActionType = actions{mod(s, 2) + 1};
-                    rec.DurationSec = 15 + s * 5;
-
-                    rec.ROM = baseROM + progress * (30 + rand * 20);
-                    rec.TargetROM = 120;
-                    rec.MaxFlexion = rec.ROM * 0.6 + rand * 5;
-                    rec.MaxExtension = -(rec.ROM - rec.MaxFlexion);
-                    rec.ROMScore = min(100, rec.ROM / rec.TargetROM * 100);
-
-                    rec.PeakForce = baseForce + progress * (20 + rand * 15);
-                    rec.MeanForce = rec.PeakForce * (0.5 + rand * 0.3);
-                    rec.TargetForce = 50;
-                    rec.ForceScore = min(100, rec.PeakForce / rec.TargetForce * 100);
-                    rec.ForceFluctuation = 0.05 + rand * 0.15;
-
-                    rec.StabilityScore = baseScore + progress * (15 + rand * 10) - 55 + progress * 20;
-                    rec.StabilityScore = max(40, min(98, rec.StabilityScore));
-                    rec.StabilityGrade = utils.RehabMetrics.determineGrade(rec.StabilityScore);
-                    rec.FluctuationCoeff = 0.05 + (1 - progress) * 0.15;
-                    rec.SmoothnessIdx = 0.7 + progress * 0.25;
-                    rec.TremorIndex = 0.01 + (1 - progress) * 0.04;
-
-                    rec.CompletionScore = 65 + progress * 30 + rand * 5;
-                    rec.OverallScore = 0.30 * rec.ROMScore + 0.25 * rec.ForceScore + ...
-                        0.25 * rec.StabilityScore + 0.20 * rec.CompletionScore;
-                    rec.OverallScore = max(0, min(100, rec.OverallScore));
-                    rec.RehabGrade = utils.RehabMetrics.determineGrade(rec.OverallScore);
-                    rec.Rec = utils.RehabMetrics.generateRecommendation(...
-                        rec.ROMScore, rec.ForceScore, rec.StabilityScore, rec.CompletionScore);
-
-                    nPts = 80 + s * 20;
-                    t = (0:nPts-1)' / 10;
-                    ampAngle = rec.ROM / 2;
-                    rec.PredAngle = ampAngle * sin(2 * pi * t / (5 + s * 1.5)) + randn(nPts, 1) * 1.5;
-                    rec.PredForce = rec.PeakForce * (0.5 + 0.5 * sin(2 * pi * t / (5 + s * 1.5))) + randn(nPts, 1) * 2;
-                    rec.TimeVector = t;
-
-                    fname = sprintf('%s_%s_s%d.mat', rec.PatientID, rec.Date, s);
-                    save(fullfile(obj.RecordsPath, fname), 'rec');
-                end
-            end
-            obj.MainApp.log('演示数据已生成: 3位患者 × 5次评估 = 15条记录');
-            obj.scanRecords();
-        end
 
         % ==================== 记录扫描与加载 ====================
         function scanRecords(obj)
@@ -401,9 +359,12 @@ classdef DataManagementTab < handle
                 try
                     loaded = load(fullfile(obj.RecordsPath, files(i).name));
                     if isfield(loaded, 'rec')
+                        loaded.rec.SourceFile = files(i).name;
                         obj.Records{end + 1} = loaded.rec;
                     elseif isfield(loaded, 'result')
-                        obj.Records{end + 1} = obj.convertResult(loaded.result);
+                        rec = obj.convertResult(loaded.result);
+                        rec.SourceFile = files(i).name;
+                        obj.Records{end + 1} = rec;
                     end
                 catch
                     continue;
@@ -421,15 +382,54 @@ classdef DataManagementTab < handle
             % 更新患者下拉
             patientIDs = unique(cellfun(@(r) r.PatientID, obj.Records, 'UniformOutput', false));
             obj.UIFilterPatient.Items = ['全部', patientIDs];
+            % 同步更新趋势筛选下拉
+            if ~isempty(obj.UITrendFilterPatient) && isvalid(obj.UITrendFilterPatient)
+                prevVal = obj.UITrendFilterPatient.Value;
+                obj.UITrendFilterPatient.Items = ['全部', patientIDs];
+                if any(strcmp(prevVal, obj.UITrendFilterPatient.Items))
+                    obj.UITrendFilterPatient.Value = prevVal;
+                else
+                    obj.UITrendFilterPatient.Value = '全部';
+                end
+            end
         end
 
         function refreshTable(obj)
+            import config.AppConstants
+
+            % 确保 DeleteChecks 长度与 Records 一致
+            nRecords = length(obj.Records);
+            if length(obj.DeleteChecks) ~= nRecords
+                obj.DeleteChecks = false(1, nRecords);
+            end
+
+            % 确定显示模式和列配置
+            if obj.IsDeleteMode
+                colNames = {'', '日期', '患者ID', '姓名', '患侧', '动作', '时长(s)', ...
+                    'ROM(°)', '峰值力(N)', '稳定性', '综合分', '等级'};
+                colWidth = {30, 120, 75, 65, 50, 70, 60, 60, 75, 55, 60, 60};
+                colFormat = {'logical', [], [], [], [], [], [], [], [], [], [], []};
+                colEditable = [true, false(1, 11)];
+            else
+                colNames = {'日期', '患者ID', '姓名', '患侧', '动作', '时长(s)', ...
+                    'ROM(°)', '峰值力(N)', '稳定性', '综合分', '等级'};
+                colWidth = {120, 75, 65, 50, 70, 60, 60, 75, 55, 60, 60};
+                colFormat = {};
+                colEditable = [];
+            end
+            obj.UITable.ColumnName = colNames;
+            obj.UITable.ColumnWidth = colWidth;
+            obj.UITable.ColumnFormat = colFormat;
+            obj.UITable.ColumnEditable = colEditable;
+
+            % 构建表格数据
             tableData = {};
-            for i = 1:length(obj.Records)
+            obj.FilteredIndices = [];
+            for i = 1:nRecords
                 r = obj.Records{i};
                 if ~obj.passFilter(r), continue; end
+                obj.FilteredIndices(end+1) = i;
 
-                % 所有列均转为字符串，空值显示为占位符
                 dateStr = obj.toChar(r.Date, '');
                 patientID = obj.toChar(r.PatientID, '未知');
                 patientName = obj.toChar(r.PatientName, '未知');
@@ -443,17 +443,18 @@ classdef DataManagementTab < handle
                 stabilityScore = obj.toScalar(r.StabilityScore, 0);
                 overallScore = obj.toScalar(r.OverallScore, 0);
 
-                tableData{end+1, 1} = dateStr;
-                tableData{end, 2} = patientID;
-                tableData{end, 3} = patientName;
-                tableData{end, 4} = affectedSide;
-                tableData{end, 5} = actionType;
-                tableData{end, 6} = sprintf('%.0f', durationSec);   % 转为字符串
-                tableData{end, 7} = sprintf('%.0f', rom);
-                tableData{end, 8} = sprintf('%.1f', peakForce);
-                tableData{end, 9} = sprintf('%.0f', stabilityScore);
-                tableData{end, 10} = sprintf('%.0f', overallScore);
-                tableData{end, 11} = rehabGrade;
+                rowData = {
+                    dateStr, patientID, patientName, affectedSide, actionType, ...
+                    sprintf('%.0f', durationSec), sprintf('%.0f', rom), ...
+                    sprintf('%.1f', peakForce), sprintf('%.0f', stabilityScore), ...
+                    sprintf('%.0f', overallScore), rehabGrade
+                    };
+
+                if obj.IsDeleteMode
+                    tableData(end+1, :) = [obj.DeleteChecks(i), rowData];
+                else
+                    tableData(end+1, :) = rowData;
+                end
             end
             obj.UITable.Data = tableData;
         end
@@ -502,7 +503,7 @@ classdef DataManagementTab < handle
             rec.PatientName = '';
             rec.PatientID = result.PatientID;
             rec.AffectedSide = '';
-            rec.Date = datestr(result.Date, 'yyyy-mm-dd');
+            rec.Date = datestr(result.Date, 'yyyy-mm-dd HH:MM');
             rec.DateNum = datenum(result.Date);
             rec.ActionType = '';
             rec.DurationSec = 0;
@@ -529,24 +530,61 @@ classdef DataManagementTab < handle
         % ==================== 趋势图更新 ====================
         function updateTrends(obj)
             if isempty(obj.Records), return; end
-            dates = cellfun(@(r) r.DateNum, obj.Records);
-            roms = cellfun(@(r) r.ROM, obj.Records);
-            forces = cellfun(@(r) r.PeakForce, obj.Records);
-            scores = cellfun(@(r) r.OverallScore, obj.Records);
+
+            % 筛选患者
+            selPatient = obj.UITrendFilterPatient.Value;
+            if strcmp(selPatient, '全部')
+                patientFiltered = obj.Records;
+            else
+                patientFiltered = {};
+                for i = 1:length(obj.Records)
+                    if strcmp(obj.Records{i}.PatientID, selPatient)
+                        patientFiltered{end+1} = obj.Records{i};
+                    end
+                end
+            end
+
+            % 筛选动作
+            selAction = obj.UITrendFilterAction.Value;
+            if strcmp(selAction, '全部')
+                filtered = patientFiltered;
+            else
+                filtered = {};
+                for i = 1:length(patientFiltered)
+                    if strcmp(patientFiltered{i}.ActionType, selAction)
+                        filtered{end+1} = patientFiltered{i};
+                    end
+                end
+            end
+
+            if isempty(filtered)
+                cla(obj.TrendAxesROM); title(obj.TrendAxesROM, 'ROM 恢复趋势 (无数据)');
+                cla(obj.TrendAxesForce); title(obj.TrendAxesForce, '力量恢复趋势 (无数据)');
+                cla(obj.TrendAxesScore); title(obj.TrendAxesScore, '综合评分趋势 (无数据)');
+                return;
+            end
+
+            dates = cellfun(@(r) r.DateNum, filtered);
+            roms = cellfun(@(r) r.ROM, filtered);
+            forces = cellfun(@(r) r.PeakForce, filtered);
+            scores = cellfun(@(r) r.OverallScore, filtered);
 
             [datesSorted, idx] = sort(dates, 'ascend');
             d = datetime(datesSorted, 'ConvertFrom', 'datenum');
 
             cla(obj.TrendAxesROM);
             plot(obj.TrendAxesROM, d, roms(idx), 'b-o', 'LineWidth', 1.5, 'MarkerSize', 4);
+            title(obj.TrendAxesROM, 'ROM 恢复趋势', 'FontName', config.AppConstants.FONT_NAME);
             ylabel(obj.TrendAxesROM, 'ROM (°)'); grid(obj.TrendAxesROM, 'on');
 
             cla(obj.TrendAxesForce);
             plot(obj.TrendAxesForce, d, forces(idx), 'r-o', 'LineWidth', 1.5, 'MarkerSize', 4);
+            title(obj.TrendAxesForce, '力量恢复趋势', 'FontName', config.AppConstants.FONT_NAME);
             ylabel(obj.TrendAxesForce, '峰值力 (N)'); grid(obj.TrendAxesForce, 'on');
 
             cla(obj.TrendAxesScore);
             plot(obj.TrendAxesScore, d, scores(idx), 'g-o', 'LineWidth', 1.5, 'MarkerSize', 4);
+            title(obj.TrendAxesScore, '综合评分趋势', 'FontName', config.AppConstants.FONT_NAME);
             ylabel(obj.TrendAxesScore, '评分'); ylim(obj.TrendAxesScore, [0, 100]);
             grid(obj.TrendAxesScore, 'on');
         end
@@ -588,18 +626,101 @@ classdef DataManagementTab < handle
 
         % ==================== 删除记录 ====================
         function deleteSelected(obj)
-            if isempty(obj.UITable.Data), return; end
-            row = obj.UITable.DisplayData.row;
-            % 获取当前选中的行（需要从过滤后的表格映射回Records）
-            % 简化：弹窗确认删除最新一条
-            choice = uiconfirm(obj.Parent, '确认删除选中的记录?', '删除确认', ...
-                'Options', {'确认删除', '取消'}, 'DefaultOption', 2);
-            if ~strcmp(choice, '确认删除'), return; end
+            import config.AppConstants
+            f = obj.MainApp.getFigure();
 
-            % 简单实现：从表格中找匹配记录并删除文件
-            tableData = obj.UITable.Data;
-            % (实际开发中通过索引映射删除对应 .mat 文件)
-            uialert(obj.Parent, '请在 records 目录下手动删除对应文件', '提示', 'Icon', 'info');
+            if ~obj.IsDeleteMode
+                % 进入删除模式
+                if isempty(obj.Records)
+                    uialert(f, '无记录可删除', '提示', 'Icon', 'info');
+                    return;
+                end
+                obj.IsDeleteMode = true;
+                obj.DeleteChecks = false(1, length(obj.Records));
+                obj.UIDeleteBtn.Text = '确认删除';
+                obj.UIDeleteBtn.BackgroundColor = [0.7 0.1 0.1];
+                obj.refreshTable();
+                return;
+            end
+
+            % 确认删除模式
+            checkedIndices = find(obj.DeleteChecks);
+            if isempty(checkedIndices)
+                % 未勾选任何记录 → 退出删除模式
+                obj.exitDeleteMode();
+                return;
+            end
+
+            nChecked = length(checkedIndices);
+            choice = uiconfirm(f, ...
+                sprintf('确认删除 %d 条选中的记录？\n此操作不可恢复。', nChecked), ...
+                '删除确认', ...
+                'Options', {'确认删除', '取消'}, 'DefaultOption', 2);
+            if ~strcmp(choice, '确认删除')
+                return;
+            end
+
+            % 执行删除（从后往前删，避免索引错乱）
+            deletedCount = 0;
+            failedCount = 0;
+            for i = sort(checkedIndices, 'descend')
+                rec = obj.Records{i};
+                % 优先使用存储的源文件名精确删除
+                if isfield(rec, 'SourceFile') && ~isempty(rec.SourceFile)
+                    filePath = fullfile(obj.RecordsPath, rec.SourceFile);
+                    if exist(filePath, 'file')
+                        delete(filePath);
+                    end
+                else
+                    % 回退：按命名模式匹配删除（兼容无SourceFile的旧记录）
+                    try
+                        datePart = regexp(rec.Date, '^\d{4}-\d{2}-\d{2}', 'match', 'once');
+                        if isempty(datePart), datePart = rec.Date; end
+                        patterns = {
+                            sprintf('%s_%s.mat', rec.PatientID, datePart), ...
+                            sprintf('%s_%s_*.mat', rec.PatientID, datePart) ...
+                            };
+                        for pi = 1:length(patterns)
+                            candidates = dir(fullfile(obj.RecordsPath, patterns{pi}));
+                            for fi = 1:length(candidates)
+                                delete(fullfile(obj.RecordsPath, candidates(fi).name));
+                            end
+                        end
+                    catch e
+                        failedCount = failedCount + 1;
+                    end
+                end
+                obj.Records(i) = [];
+                deletedCount = deletedCount + 1;
+            end
+
+            if failedCount > 0
+                obj.MainApp.log(sprintf('已删除 %d 条记录，%d 条文件删除失败', deletedCount, failedCount));
+            else
+                obj.MainApp.log(sprintf('已删除 %d 条记录', deletedCount));
+            end
+            obj.exitDeleteMode();
+        end
+
+        function exitDeleteMode(obj)
+            obj.IsDeleteMode = false;
+            obj.DeleteChecks = [];
+            obj.UIDeleteBtn.Text = '删除';
+            obj.UIDeleteBtn.BackgroundColor = config.AppConstants.COLOR_DANGER;
+            obj.scanRecords();
+        end
+
+        function onCheckboxChanged(obj, evt)
+            if ~obj.IsDeleteMode, return; end
+            if isempty(evt.Indices), return; end
+            row = evt.Indices(1);
+            col = evt.Indices(2);
+            if col ~= 1, return; end
+            if row > length(obj.FilteredIndices), return; end
+            recIdx = obj.FilteredIndices(row);
+            val = evt.NewData;
+            if iscell(val), val = val{1}; end
+            obj.DeleteChecks(recIdx) = logical(val);
         end
 
         % ==================== 导入导出 ====================
@@ -707,32 +828,84 @@ end
             fullPath = fullfile(path, file);
 
             try
-                fig = figure('Visible', 'off', 'Position', [100, 100, 600, 800], ...
-                    'PaperUnits', 'points', 'PaperSize', [595, 842], ...
+                fig = figure('Visible', 'off', ...
+                    'Units', 'points', ...
+                    'Position', [100, 100, 600, 900], ...
+                    'PaperUnits', 'points', ...
+                    'PaperSize', [595, 842], ...
                     'PaperPosition', [0, 0, 595, 842]);
 
-                summaryText = sprintf('康复档案汇总报告\n\n生成日期: %s\n总评估: %d次\n', ...
-                    datestr(datetime('now'), 'yyyy-mm-dd'), length(obj.Records));
+                % 统计数据计算
+                n = length(obj.Records);
+                if n > 0
+                    ids = unique(cellfun(@(r) r.PatientID, obj.Records, 'UniformOutput', false));
+                    totalDur = sum(cellfun(@(r) r.DurationSec, obj.Records));
+                    avgROM = mean(cellfun(@(r) r.ROM, obj.Records));
+                    avgForce = mean(cellfun(@(r) r.PeakForce, obj.Records));
+                    avgScore = mean(cellfun(@(r) r.OverallScore, obj.Records));
+                    bestScore = max(cellfun(@(r) r.OverallScore, obj.Records));
+                    lastDate = max(cellfun(@(r) r.DateNum, obj.Records));
+                    lastDateStr = datestr(lastDate, 'yyyy-mm-dd');
+                else
+                    ids = {}; totalDur = 0; avgROM = 0; avgForce = 0; avgScore = 0; bestScore = 0; lastDateStr = '--';
+                end
 
-                uicontrol('Style', 'text', 'String', summaryText, ...
-                    'FontSize', 14, 'Position', [50, 720, 500, 100], ...
-                    'HorizontalAlignment', 'left');
+                % ---- 标题区域 (annotation textbox 兼容性更好) ----
+                annotation(fig, 'textbox', [0.08, 0.91, 0.84, 0.06], ...
+                    'String', '肌电慧控 - 康复档案汇总报告', ...
+                    'FontName', 'Microsoft YaHei', 'FontSize', 18, 'FontWeight', 'bold', ...
+                    'Color', [0.15 0.29 0.46], 'EdgeColor', 'none', ...
+                    'HorizontalAlignment', 'center');
 
+                subInfo = sprintf('生成日期: %s    |    总评估次数: %d    |    总患者数: %d', ...
+                    datestr(datetime('now'), 'yyyy-mm-dd'), n, length(ids));
+                annotation(fig, 'textbox', [0.08, 0.865, 0.84, 0.04], ...
+                    'String', subInfo, ...
+                    'FontName', 'Microsoft YaHei', 'FontSize', 10, ...
+                    'EdgeColor', 'none', 'HorizontalAlignment', 'center');
+
+                % 统计数据表
+                statStr = sprintf([ ...
+                    '      总患者数:      %d              总评估次数:    %d              总训练时长:    %.0f s\n\n' ...
+                    '      平均ROM:       %.0f°             平均峰值力量:  %.1f N         平均综合评分:  %.0f\n\n' ...
+                    '      最佳综合评分:  %.0f               最近评估日期:  %s' ...
+                    ], length(ids), n, totalDur, avgROM, avgForce, avgScore, bestScore, lastDateStr);
+                annotation(fig, 'textbox', [0.08, 0.74, 0.84, 0.12], ...
+                    'String', statStr, ...
+                    'FontName', 'Microsoft YaHei', 'FontSize', 10, ...
+                    'EdgeColor', [0.15 0.29 0.46], 'LineWidth', 1, ...
+                    'BackgroundColor', [0.95 0.96 0.98]);
+
+                % ---- 三趋势图 ----
                 if ~isempty(obj.Records)
                     dates = cellfun(@(r) r.DateNum, obj.Records);
+                    roms = cellfun(@(r) r.ROM, obj.Records);
+                    forces = cellfun(@(r) r.PeakForce, obj.Records);
                     scores = cellfun(@(r) r.OverallScore, obj.Records);
                     [dS, idx] = sort(dates, 'ascend');
                     d = datetime(dS, 'ConvertFrom', 'datenum');
-                    ax = axes('Units', 'points', 'Position', [50, 300, 500, 380]);
-                    plot(ax, d, scores(idx), 'b-o', 'LineWidth', 1.5);
-                    ylabel(ax, '综合评分'); title(ax, '康复趋势');
-                    ylim(ax, [0, 100]); grid(ax, 'on');
+
+                    axROM = axes('Position', [0.10, 0.55, 0.84, 0.17]);
+                    plot(axROM, d, roms(idx), 'b-o', 'LineWidth', 1.5, 'MarkerSize', 4, 'MarkerFaceColor', 'b');
+                    ylabel(axROM, 'ROM (°)'); title(axROM, 'ROM 恢复趋势');
+                    grid(axROM, 'on');
+
+                    axForce = axes('Position', [0.10, 0.33, 0.84, 0.17]);
+                    plot(axForce, d, forces(idx), 'r-o', 'LineWidth', 1.5, 'MarkerSize', 4, 'MarkerFaceColor', 'r');
+                    ylabel(axForce, '峰值力 (N)'); title(axForce, '力量恢复趋势');
+                    grid(axForce, 'on');
+
+                    axScore = axes('Position', [0.10, 0.11, 0.84, 0.17]);
+                    plot(axScore, d, scores(idx), 'g-o', 'LineWidth', 1.5, 'MarkerSize', 4, 'MarkerFaceColor', 'g');
+                    ylabel(axScore, '评分'); xlabel(axScore, '评估日期');
+                    title(axScore, '综合评分趋势');
+                    ylim(axScore, [0, 100]); grid(axScore, 'on');
                 end
 
-                exportgraphics(fig, fullPath, 'ContentType', 'vector');
+                print(fig, fullPath, '-dpdf', '-bestfit');
                 close(fig);
-                obj.MainApp.log(sprintf('PDF已导出: %s', fullPath));
-                uialert(obj.MainApp.getFigure(), 'PDF导出成功!', '成功', 'Icon', 'success');
+                obj.MainApp.log(sprintf('PDF报告已导出: %s', fullPath));
+                uialert(obj.MainApp.getFigure(), 'PDF报告导出成功!', '成功', 'Icon', 'success');
             catch e
                 if exist('fig', 'var') && isvalid(fig), close(fig); end
                 uialert(obj.MainApp.getFigure(), e.message, '错误', 'Icon', 'error');

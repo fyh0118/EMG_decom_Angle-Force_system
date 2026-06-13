@@ -435,7 +435,7 @@ classdef AssessmentTab < handle
             rec.PatientName = obj.UIPatientName.Value;
             rec.PatientID = obj.UIPatientID.Value;
             rec.AffectedSide = obj.UIAffectedSide.Value;
-            rec.Date = datestr(result.Date, 'yyyy-mm-dd');
+            rec.Date = datestr(result.Date, 'yyyy-mm-dd HH:MM');
             rec.DateNum = datenum(result.Date);
             rec.ActionType = obj.UIActionType.Value;
             rec.DurationSec = obj.UITrainingDuration.Value;
@@ -458,7 +458,8 @@ classdef AssessmentTab < handle
             rec.PredForce = obj.MainApp.PredictedForce;
             rec.TimeVector = obj.MainApp.TimeVector;
 
-            fname = sprintf('%s_%s.mat', rec.PatientID, rec.Date);
+            fname = sprintf('%s_%s.mat', rec.PatientID, ...
+                datestr(result.Date, 'yyyy-mm-dd_HHMM'));
             save(fullfile(recordsPath, fname), 'rec');
             obj.MainApp.log(sprintf('记录已自动保存: %s', fname));
         end

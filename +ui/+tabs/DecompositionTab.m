@@ -292,7 +292,7 @@ classdef DecompositionTab < handle
                 return;
             end
 
-            templateRoot = AppConstants.TEMPLATE_ROOT;
+            templateRoot = AppConstants.getTemplateRoot();
             actionDir = fullfile(templateRoot, obj.CurrentSubject, obj.CurrentAction);
             if ~exist(actionDir, 'dir')
                 obj.UITemplateStatusLabel.Text = sprintf('模板目录不存在: %s', actionDir);
@@ -587,8 +587,9 @@ classdef DecompositionTab < handle
             end
             xlim(ax, [0, nSamples/fs]);
             ylim(ax, [0.5, nMU+0.5]);
-            yticks(ax, 1:min(nMU,50));
-            yticklabels(ax, arrayfun(@(x)sprintf('MU%d',x), 1:min(nMU,50), 'UniformOutput',false));
+            tickMU = unique([1, 10:10:nMU, nMU]);
+            yticks(ax, tickMU);
+            yticklabels(ax, arrayfun(@(x)sprintf('MU%d',x), tickMU, 'UniformOutput',false));
             xlabel(ax, '时间 (s)');
             ylabel(ax, 'MU编号');
             title(ax, [sideName ' MU发放序列']);

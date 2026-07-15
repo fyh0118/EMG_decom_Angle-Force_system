@@ -91,7 +91,14 @@ classdef LoginScreen < handle
             ax.Layout.Row = 1;
             ax.Layout.Column = 1;
 
-            logoFile = fullfile(fileparts(which('LoginScreen')), '使用工具生成图片.png');
+            logoPath = fileparts(which('LoginScreen'));
+            if isempty(logoPath)
+                logoPath = fileparts(mfilename('fullpath'));
+            end
+            logoFile = fullfile(logoPath, 'logo.png');
+            if ~exist(logoFile, 'file')
+                logoFile = fullfile(logoPath, '使用工具生成图片.png');
+            end
             if exist(logoFile, 'file')
                 [img, map, alpha] = imread(logoFile);
                 if isempty(alpha)

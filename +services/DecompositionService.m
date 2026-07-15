@@ -419,35 +419,32 @@ classdef DecompositionService < handle
             obj.Progress = 0;
             tStart = tic;
 
-            % 定位 Python bridge 脚本
-            bridgeScript = fullfile(fileparts(mfilename('fullpath')), ...
-                'decompose_python_bridge.py');
+            % 定位 Python bridge (部署模式用 EXE, 开发模式用 .py)
+            if isdeployed
+                bridgeExe = fullfile(ctfroot, 'EMGDecom', 'decompose_python_bridge.exe');
+                cmd = sprintf('"%s" "%s" "%s" "%s" "%s"', ...
+                    bridgeExe, flexorEMGPath, extensorEMGPath, ...
+                    templateDir, outputDir);
+                fprintf('[分解服务] Bridge (部署): %s\n', bridgeExe);
+            else
+                bridgeScript = fullfile(fileparts(fileparts(mfilename('fullpath'))), ...
+                    'decompose_python_bridge.py');
+                cmd = sprintf('"%s" "%s" "%s" "%s" "%s" "%s"', ...
+                    obj.PythonExe, bridgeScript, flexorEMGPath, ...
+                    extensorEMGPath, templateDir, outputDir);
+                fprintf('[分解服务] Bridge (开发): %s\n', bridgeScript);
+            end
 
-            fprintf('[分解服务] Python bridge: %s\n', bridgeScript);
             fprintf('[分解服务] Flexor EMG: %s\n', flexorEMGPath);
             fprintf('[分解服务] Extensor EMG: %s\n', extensorEMGPath);
             fprintf('[分解服务] Template dir: %s\n', templateDir);
             fprintf('[分解服务] Output dir: %s\n', outputDir);
-
-            % 构建命令
-            cmd = sprintf('"%s" "%s" "%s" "%s" "%s" "%s"', ...
-                obj.PythonExe, bridgeScript, flexorEMGPath, ...
-                extensorEMGPath, templateDir, outputDir);
-
             fprintf('[分解服务] 执行: %s\n', cmd);
 
             obj.Progress = 10;
 
-            % 获取当前 PATH
-oldPath = getenv('PATH');
-% 添加 conda 的库路径
-newPath = [oldPath ';C:\Users\Administrator\anaconda3\Library\bin'];
-setenv('PATH', newPath);
-
-            % 执行 Python 脚本
+            % 执行 Python 桥
             [status, cmdout] = system(cmd);
-% 可选：恢复 PATH
-setenv('PATH', oldPath);
             if status ~= 0
                 obj.IsRunning = false;
                 error('Python分解失败:\n%s', cmdout);

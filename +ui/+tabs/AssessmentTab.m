@@ -429,7 +429,7 @@ classdef AssessmentTab < handle
         end
 
         function autoSaveRecord(obj, result)
-            recordsPath = fullfile(fileparts(mfilename('fullpath')), '..', '..', 'records');
+            recordsPath = config.AppConstants.getRecordsRoot();
             if ~exist(recordsPath, 'dir'), mkdir(recordsPath); end
 
             rec.PatientName = obj.UIPatientName.Value;

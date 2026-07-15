@@ -8,8 +8,6 @@ classdef AppConstants
         LOGIN_WINDOW_WIDTH = 800
         LOGIN_WINDOW_HEIGHT = 500
         STATUS_BAR_HEIGHT = 36
-        % ---- 模板文件夹 ----
-        TEMPLATE_ROOT = 'F:\EMG_decom_angle_system\模板';   % 根据您的实际路径修改
         % ---- 配色方案（医疗康复专业风格） ----
         COLOR_BG           = [0.94 0.96 0.98]   % 淡蓝灰背景
         COLOR_PANEL_BG     = [1.00 1.00 1.00]   % 白色面板
@@ -75,6 +73,19 @@ classdef AppConstants
             for i = 1:nSteps
                 factor = 0.6 + 0.4 * (i - 1) / max(nSteps - 1, 1);
                 colors(i, :) = baseColor * factor + [1 1 1] * (1 - factor);
+            end
+        end
+
+        % ---- 路径工具（自动适配开发/编译模式） ----
+        function root = getTemplateRoot()
+            root = fullfile(fileparts(fileparts(mfilename('fullpath'))), '模板');
+        end
+
+        function root = getRecordsRoot()
+            if isdeployed
+                root = fullfile(getenv('APPDATA'), '肌电慧控', 'records');
+            else
+                root = fullfile(fileparts(fileparts(mfilename('fullpath'))), 'records');
             end
         end
     end

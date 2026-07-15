@@ -1,1 +1,16 @@
-*.npy 
+# Build outputs
+build_output/
+build_pyinstaller/build/
+build_pyinstaller/dist/
+build_pyinstaller/decompose_python_bridge/
+
+# Large binaries (copied by build_app.m, source is in build_pyinstaller/)
+decompose_python_bridge.exe
+
+# Temp files
+~$*.vsdx
+~$*.docx
+
+# Debug files
+问题.md
+problem_screenshot.jpg

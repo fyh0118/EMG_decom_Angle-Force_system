@@ -47,7 +47,7 @@ classdef DataManagementTab < handle
         function obj = DataManagementTab(parent, mainApp)
             obj.Parent = parent;
             obj.MainApp = mainApp;
-            obj.RecordsPath = fullfile(fileparts(mfilename('fullpath')), '..', '..', 'records');
+            obj.RecordsPath = config.AppConstants.getRecordsRoot();
             if ~exist(obj.RecordsPath, 'dir')
                 mkdir(obj.RecordsPath);
             end
@@ -739,11 +739,66 @@ classdef DataManagementTab < handle
             if isequal(file, 0), return; end
             try
                 T = readtable(fullfile(path, file));
-                disp(T);
-                obj.MainApp.log(sprintf('CSV已加载: %s', file));
-                uialert(obj.Parent, 'CSV数据加载成功!', '导入成功', 'Icon', 'success');
+                % 按列序号读取: 日期|患者ID|姓名|患侧|动作|时长|ROM|峰值力|稳定性|综合分|等级
+                nImported = 0;
+                for r = 1:size(T, 1)
+                    row = table2cell(T(r,:));
+                    rec.PatientName = char(string(row{3}));
+                    rec.PatientID = char(string(row{2}));
+                    rec.AffectedSide = char(string(row{4}));
+                    dateStr = char(string(row{1}));
+                    rec.Date = dateStr;
+                    try
+                        rec.DateNum = datenum(dateStr);
+                    catch
+                        rec.DateNum = now;
+                    end
+                    rec.ActionType = char(string(row{5}));
+                    rec.DurationSec = double(row{6});
+                    rec.ROM = double(row{7});
+                    rec.TargetROM = 120;
+                    rec.MaxFlexion = rec.ROM * 0.6;
+                    rec.MaxExtension = -(rec.ROM - rec.MaxFlexion);
+                    rec.ROMScore = min(100, rec.ROM / rec.TargetROM * 100);
+                    rec.PeakForce = double(row{8});
+                    rec.MeanForce = rec.PeakForce * 0.7;
+                    rec.TargetForce = 50;
+                    rec.ForceScore = min(100, rec.PeakForce / rec.TargetForce * 100);
+                    rec.StabilityScore = double(row{9});
+                    rec.StabilityGrade = char(string(row{11}));
+                    rec.CompletionScore = 80;
+                    rec.OverallScore = double(row{10});
+                    rec.RehabGrade = char(string(row{11}));
+                    rec.Rec = '由CSV导入';
+                    rec.PredAngle = [];
+                    rec.PredForce = [];
+                    rec.TimeVector = [];
+
+                    rec = obj.sanitizeRec(rec);
+
+                    datePart = strrep(strrep(dateStr, ' ', '_'), ':', '-');
+                    fname = sprintf('%s_%s_import.mat', rec.PatientID, datePart);
+                    save(fullfile(obj.RecordsPath, fname), 'rec');
+                    obj.Records{end+1} = rec;
+                    nImported = nImported + 1;
+                end
+                obj.scanRecords();
+                obj.MainApp.log(sprintf('CSV导入 %d 条记录: %s', nImported, file));
+                uialert(obj.Parent, sprintf('成功导入 %d 条记录!', nImported), '导入成功', 'Icon', 'success');
             catch e
                 uialert(obj.Parent, e.message, '导入失败', 'Icon', 'error');
+            end
+        end
+
+        function rec = sanitizeRec(~, rec)
+            fns = fieldnames(rec);
+            for f = 1:length(fns)
+                val = rec.(fns{f});
+                if isstring(val) && isscalar(val)
+                    rec.(fns{f}) = char(val);
+                elseif isstring(val) && ~isscalar(val)
+                    rec.(fns{f}) = char(strjoin(val, ', '));
+                end
             end
         end
 
@@ -815,7 +870,8 @@ end
             if dirPath == 0, return; end
             for i = 1:length(obj.Records)
                 rec = obj.Records{i}; %#ok<NASGU>
-                fname = sprintf('%s_%s.mat', obj.Records{i}.PatientID, obj.Records{i}.Date);
+                dateStr = strrep(strrep(obj.Records{i}.Date, ' ', '_'), ':', '-');
+                fname = sprintf('%s_%s.mat', obj.Records{i}.PatientID, dateStr);
                 save(fullfile(dirPath, fname), 'rec');
             end
             obj.MainApp.log(sprintf('批量导出 %d 条记录', length(obj.Records)));

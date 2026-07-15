@@ -226,7 +226,7 @@ classdef PredictionTab < handle
             end
             obj.UISubjectLabel.Text = sprintf('%s / %s', subject, action);
 
-            templateRoot = config.AppConstants.TEMPLATE_ROOT;
+            templateRoot = config.AppConstants.getTemplateRoot();
             modelPath = fullfile(templateRoot, subject, action, 'net.mat');
             if ~exist(modelPath, 'file')
                 obj.UIModelStatusLabel.Text = '模型文件不存在';
@@ -244,7 +244,7 @@ classdef PredictionTab < handle
                 obj.UIModelStatusLabel.FontColor = config.AppConstants.COLOR_DANGER;
                 obj.appendLog(sprintf('模型加载失败: %s', msg));
             end
-            fprintf('TEMPLATE_ROOT = %s\n', config.AppConstants.TEMPLATE_ROOT);
+            fprintf('TEMPLATE_ROOT = %s\n', config.AppConstants.getTemplateRoot());
             fprintf('subject = %s\n', subject);
             fprintf('action = %s\n', action);
             fprintf('modelPath = %s\n', modelPath);
@@ -258,7 +258,7 @@ classdef PredictionTab < handle
                 obj.UITemplateStatusLabel.FontColor = config.AppConstants.COLOR_DANGER;
                 return;
             end
-            templateRoot = config.AppConstants.TEMPLATE_ROOT;
+            templateRoot = config.AppConstants.getTemplateRoot();
             actionDir = fullfile(templateRoot, subject, action);
             if exist(actionDir, 'dir')
                 obj.UITemplateStatusLabel.Text = '齐全';
